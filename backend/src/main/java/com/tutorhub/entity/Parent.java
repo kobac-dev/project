@@ -16,14 +16,13 @@ public class Parent {
     private Long id;
 
     @NotBlank
-    @Column(name = "full_name")
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @NotBlank
     @Column(name = "phone_number")
     private String phoneNumber;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "address_id")
     private Address address;
 
@@ -33,8 +32,8 @@ public class Parent {
     @Column(name = "profile_image")
     private String profileImage;
 
-    @OneToOne
-    @JoinColumn(name = "user_id", unique = true)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", unique = true, nullable = false)
     private User user;
 
     @Column(name = "children_count")
@@ -77,5 +76,14 @@ public class Parent {
 
     public enum Gender {
         MALE, FEMALE, OTHER
+    }
+
+    @Override
+    public String toString() {
+        return "Parent{" +
+                "id=" + id +
+                ", fullName='" + fullName + '\'' +
+                ", childrenCount=" + childrenCount +
+                '}';
     }
 }

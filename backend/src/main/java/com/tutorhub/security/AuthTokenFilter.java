@@ -18,23 +18,30 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 public class AuthTokenFilter extends OncePerRequestFilter {
+    
+    private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class);
+    
     @Autowired
     private JwtUtils jwtUtils;
 
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class);
-
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
+            FilterChain filterChain) throws ServletException, IOException {
+        
         try {
             String jwt = parseJwt(request);
+            
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
                 String email = jwtUtils.getUserNameFromJwtToken(jwt);
+                logger.debug("JWT valid for user: {}", email);
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                logger.debug("Loaded user details: {} with authorities: {}", 
+                    userDetails.getUsername(), userDetails.getAuthorities());
+                
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails,
                                 null,
@@ -42,9 +49,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                logger.debug("Set authentication in security context for user: {}", email);
+            } else {
+                logger.debug("JWT token is null or invalid");
             }
         } catch (Exception e) {
-            logger.error("Cannot set user authentication: {}", e);
+            logger.error("Cannot set user authentication: {}", e.getMessage(), e);
         }
 
         filterChain.doFilter(request, response);
@@ -54,9 +64,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         String headerAuth = request.getHeader("Authorization");
 
         if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
-            return headerAuth.substring(7);
+            String token = headerAuth.substring(7);
+            logger.debug("Extracted JWT token from Authorization header");
+            return token;
         }
 
+        logger.debug("No valid JWT token found in Authorization header");
         return null;
     }
 }
