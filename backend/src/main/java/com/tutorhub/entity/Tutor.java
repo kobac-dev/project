@@ -21,40 +21,39 @@ public class Tutor {
     private Long id;
 
     @NotBlank
-    @Column(name = "full_name")
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
     @Enumerated(EnumType.STRING)
     private Gender sex;
 
-    @NotBlank
     @Column(name = "phone_number")
     private String phoneNumber;
 
     @NotBlank
     @Email
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String email;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "address_id")
     private Address address;
 
     @NotNull
-    @Column(name = "max_number")
+    @Column(name = "max_number", nullable = false)
     private Integer maxNumber;
 
     @Column(name = "profile_image")
     private String profileImage;
 
-    @OneToOne
-    @JoinColumn(name = "user_id", unique = true)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", unique = true, nullable = false)
     private User user;
 
-    @OneToOne(mappedBy = "tutor", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "tutor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Education education;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "tutor_subjects",
         joinColumns = @JoinColumn(name = "tutor_id"),
@@ -62,7 +61,7 @@ public class Tutor {
     )
     private Set<Subject> subjects = new HashSet<>();
 
-    @OneToMany(mappedBy = "tutor", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "tutor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<Availability> availability = new HashSet<>();
 
     @Column(precision = 3, scale = 2)
@@ -72,6 +71,7 @@ public class Tutor {
     private BigDecimal hourlyRate;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private TutorStatus status = TutorStatus.ACTIVE;
 
     @CreatedDate
@@ -136,5 +136,15 @@ public class Tutor {
 
     public enum TutorStatus {
         ACTIVE, INACTIVE
+    }
+
+    @Override
+    public String toString() {
+        return "Tutor{" +
+                "id=" + id +
+                ", fullName='" + fullName + '\'' +
+                ", email='" + email + '\'' +
+                ", status=" + status +
+                '}';
     }
 }

@@ -16,7 +16,10 @@ import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = {
+    @UniqueConstraint(columnNames = "username"),
+    @UniqueConstraint(columnNames = "email")
+})
 @EntityListeners(AuditingEntityListener.class)
 public class User implements UserDetails {
     @Id
@@ -25,16 +28,17 @@ public class User implements UserDetails {
 
     @NotBlank
     @Size(min = 3, max = 50)
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String username;
 
     @NotBlank
     @Email
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String email;
 
     @NotBlank
     @Size(min = 6)
+    @Column(nullable = false)
     private String password;
 
     @Enumerated(EnumType.STRING)
@@ -78,6 +82,16 @@ public class User implements UserDetails {
     }
 
     @Override
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public String getUsername() {
+        return email; // Use email as username for authentication
+    }
+
+    @Override
     public boolean isAccountNonExpired() {
         return accountNonExpired;
     }
@@ -101,13 +115,12 @@ public class User implements UserDetails {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public String getUsername() { return username; }
+    public String getUsernameField() { return username; } // Renamed to avoid confusion
     public void setUsername(String username) { this.username = username; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
-    public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
 
     public Role getRole() { return role; }
@@ -126,5 +139,16 @@ public class User implements UserDetails {
 
     public enum Role {
         ADMIN, TUTOR, PARENT
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + id +
+                ", username='" + username + '\'' +
+                ", email='" + email + '\'' +
+                ", role=" + role +
+                ", enabled=" + enabled +
+                '}';
     }
 }
