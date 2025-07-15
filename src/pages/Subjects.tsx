@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Search, Edit, Trash2, BookOpen, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Edit, Trash2, BookOpen, Calendar, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -22,49 +22,130 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { mockSubjects } from '@/data/mockData';
-import { Subject, SubjectFormData } from '@/types';
+import { adminAPI } from '@/services/api';
+import { Subject } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 export function Subjects() {
-  const [subjects, setSubjects] = useState<Subject[]>(mockSubjects);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newSubject, setNewSubject] = useState<SubjectFormData>({
-    subjectName: ''
-  });
+  const [newSubject, setNewSubject] = useState({ subjectName: '' });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchSubjects();
+  }, []);
+
+  const fetchSubjects = async () => {
+    try {
+      setLoading(true);
+      const response = await adminAPI.getSubjects();
+      setSubjects(response.data);
+    } catch (error) {
+      console.error('Failed to fetch subjects:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load subjects data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredSubjects = subjects.filter(subject =>
     subject.subjectName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddSubject = () => {
-    const subject: Subject = {
-      id: subjects.length + 1,
-      subjectName: newSubject.subjectName,
-      isActive: true,
-      createdAt: new Date().toISOString()
-    };
-    setSubjects([...subjects, subject]);
-    setNewSubject({
-      subjectName: ''
-    });
-    setIsAddDialogOpen(false);
+  const handleAddSubject = async () => {
+    if (!newSubject.subjectName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a subject name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await adminAPI.createSubject(newSubject);
+      setSubjects([...subjects, response.data]);
+      setNewSubject({ subjectName: '' });
+      setIsAddDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Subject created successfully",
+      });
+    } catch (error) {
+      console.error('Failed to create subject:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create subject",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleToggleActive = (id: number) => {
-    setSubjects(subjects.map(subject => 
-      subject.id === id 
-        ? { ...subject, isActive: !subject.isActive }
-        : subject
-    ));
+  const handleToggleActive = async (id: number) => {
+    const subject = subjects.find(s => s.id === id);
+    if (!subject) return;
+
+    try {
+      const updatedSubject = { 
+        subjectName: subject.subjectName, 
+        isActive: !subject.isActive 
+      };
+      await adminAPI.updateSubject(id, updatedSubject);
+      setSubjects(subjects.map(s => 
+        s.id === id ? { ...s, isActive: !s.isActive } : s
+      ));
+      toast({
+        title: "Success",
+        description: `Subject ${!subject.isActive ? 'activated' : 'deactivated'} successfully`,
+      });
+    } catch (error) {
+      console.error('Failed to update subject:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update subject",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteSubject = (id: number) => {
-    setSubjects(subjects.filter(subject => subject.id !== id));
+  const handleDeleteSubject = async (id: number) => {
+    try {
+      await adminAPI.deleteSubject(id);
+      setSubjects(subjects.filter(subject => subject.id !== id));
+      toast({
+        title: "Success",
+        description: "Subject deleted successfully",
+      });
+    } catch (error) {
+      console.error('Failed to delete subject:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete subject",
+        variant: "destructive",
+      });
+    }
   };
 
   const activeSubjects = subjects.filter(s => s.isActive).length;
   const inactiveSubjects = subjects.filter(s => !s.isActive).length;
+
+  if (loading) {
+    return (
+      <div className="h-full w-full bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
+        <div className="flex items-center space-x-3">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <span className="text-lg font-medium text-slate-700 dark:text-slate-300">Loading subjects...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">

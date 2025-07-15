@@ -1,6 +1,69 @@
 import { useState, useEffect } from 'react';
-import { tutorAPI, TutorProfile, TutorBooking, TutorStats } from '@/services/tutorApi';
+import { tutorAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+
+export interface TutorProfile {
+  id: number;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  profileImage?: string;
+  hourlyRate: number;
+  maxNumber: number;
+  rating?: number;
+  status: string;
+  subjects: Array<{
+    id: number;
+    subjectName: string;
+  }>;
+  education?: {
+    highestDegree: string;
+    graduateYear: number;
+    status: {
+      statusName: string;
+    };
+  };
+  address?: {
+    area: string;
+    location: string;
+    district: string;
+    country: string;
+  };
+  availability: Array<{
+    id: number;
+    dayOfWeek: string;
+    startTime: string;
+    endTime: string;
+  }>;
+}
+
+export interface TutorBooking {
+  id: number;
+  parent: {
+    fullName: string;
+    profileImage?: string;
+  };
+  subject: {
+    subjectName: string;
+  };
+  date: string;
+  timeSlot: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED' | 'CANCELLED';
+  amount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TutorStats {
+  totalStudents: number;
+  upcomingSessions: number;
+  hoursThisWeek: number;
+  earningsThisMonth: number;
+  averageRating: number;
+  totalReviews: number;
+  completionRate: number;
+  responseTime: string;
+}
 
 export function useTutorProfile() {
   const [profile, setProfile] = useState<TutorProfile | null>(null);
@@ -11,8 +74,8 @@ export function useTutorProfile() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const data = await tutorAPI.getProfile();
-      setProfile(data);
+      const response = await tutorAPI.getProfile();
+      setProfile(response.data);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch profile');
@@ -28,13 +91,13 @@ export function useTutorProfile() {
 
   const updateProfile = async (updates: Partial<TutorProfile>) => {
     try {
-      const updatedProfile = await tutorAPI.updateProfile(updates);
-      setProfile(updatedProfile);
+      const response = await tutorAPI.updateProfile(updates);
+      setProfile(response.data);
       toast({
         title: "Success",
         description: "Profile updated successfully",
       });
-      return updatedProfile;
+      return response.data;
     } catch (err: any) {
       toast({
         title: "Error",
@@ -67,8 +130,8 @@ export function useTutorBookings() {
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      const data = await tutorAPI.getBookings();
-      setBookings(data);
+      const response = await tutorAPI.getBookings();
+      setBookings(response.data);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch bookings');
@@ -84,15 +147,15 @@ export function useTutorBookings() {
 
   const updateBookingStatus = async (bookingId: number, status: string) => {
     try {
-      const updatedBooking = await tutorAPI.updateBookingStatus(bookingId, status);
+      const response = await tutorAPI.updateBookingStatus(bookingId, status);
       setBookings(prev => prev.map(booking => 
-        booking.id === bookingId ? updatedBooking : booking
+        booking.id === bookingId ? response.data : booking
       ));
       toast({
         title: "Success",
         description: `Booking ${status.toLowerCase()} successfully`,
       });
-      return updatedBooking;
+      return response.data;
     } catch (err: any) {
       toast({
         title: "Error",
@@ -125,8 +188,19 @@ export function useTutorStats() {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const data = await tutorAPI.getDashboardStats();
-      setStats(data);
+      // For now, we'll use mock data since the backend doesn't have this endpoint
+      // In a real implementation, this would call a dedicated stats endpoint
+      const mockStats: TutorStats = {
+        totalStudents: 15,
+        upcomingSessions: 8,
+        hoursThisWeek: 24,
+        earningsThisMonth: 1800,
+        averageRating: 4.8,
+        totalReviews: 127,
+        completionRate: 98,
+        responseTime: '< 2 hours'
+      };
+      setStats(mockStats);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch stats');

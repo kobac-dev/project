@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, GraduationCap, Users, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { authAPI } from '@/services/api';
 
 export function SignupPage() {
   const [formData, setFormData] = useState({
@@ -57,16 +58,34 @@ export function SignupPage() {
 
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast({
-      title: "Account created successfully!",
-      description: "Please check your email to verify your account.",
-    });
+    try {
+      const signupData = {
+        username: formData.fullName.toLowerCase().replace(/\s+/g, '.'),
+        email: formData.email,
+        password: formData.password,
+        role: formData.role.toUpperCase(),
+        fullName: formData.fullName,
+        phoneNumber: formData.phoneNumber
+      };
 
-    setIsLoading(false);
-    navigate('/login');
+      await authAPI.signup(signupData);
+      
+      toast({
+        title: "Account created successfully!",
+        description: "You can now sign in with your credentials.",
+      });
+
+      navigate('/login');
+    } catch (error: any) {
+      console.error('Signup failed:', error);
+      toast({
+        title: "Signup failed",
+        description: error.response?.data?.message || "Failed to create account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: any) => {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Filter, Eye, Edit, Trash2, Calendar, Clock, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, Eye, Edit, Trash2, Calendar, Clock, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,15 +12,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -28,21 +19,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Label } from '@/components/ui/label';
-import { mockBookings, mockTutors, mockParents, mockSubjects } from '@/data/mockData';
-import { Booking, BookingFormData } from '@/types';
+import { adminAPI } from '@/services/api';
+import { Booking } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'accepted':
+    case 'ACCEPTED':
       return 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0 shadow-sm';
-    case 'pending':
+    case 'PENDING':
       return 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0 shadow-sm';
-    case 'rejected':
+    case 'REJECTED':
       return 'bg-gradient-to-r from-red-500 to-pink-500 text-white border-0 shadow-sm';
-    case 'completed':
+    case 'COMPLETED':
       return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 shadow-sm';
-    case 'cancelled':
+    case 'CANCELLED':
       return 'bg-gradient-to-r from-gray-500 to-slate-500 text-white border-0 shadow-sm';
     default:
       return 'bg-gradient-to-r from-gray-500 to-slate-500 text-white border-0 shadow-sm';
@@ -50,18 +41,32 @@ const getStatusColor = (status: string) => {
 };
 
 export function Bookings() {
-  const [bookings, setBookings] = useState<Booking[]>(mockBookings);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newBooking, setNewBooking] = useState<BookingFormData>({
-    parentId: 0,
-    tutorId: 0,
-    subjectId: 0,
-    date: '',
-    timeSlot: '',
-    status: 'pending'
-  });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      const response = await adminAPI.getBookings();
+      setBookings(response.data);
+    } catch (error) {
+      console.error('Failed to fetch bookings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load bookings data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = 
@@ -74,45 +79,38 @@ export function Bookings() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleStatusChange = (bookingId: number, newStatus: string) => {
-    setBookings(bookings.map(booking => 
-      booking.id === bookingId 
-        ? { ...booking, status: newStatus as Booking['status'], updatedAt: new Date().toISOString() }
-        : booking
-    ));
+  const handleStatusChange = async (bookingId: number, newStatus: string) => {
+    try {
+      await adminAPI.updateBookingStatus(bookingId, newStatus);
+      setBookings(bookings.map(booking => 
+        booking.id === bookingId 
+          ? { ...booking, status: newStatus as Booking['status'], updatedAt: new Date().toISOString() }
+          : booking
+      ));
+      toast({
+        title: "Success",
+        description: "Booking status updated successfully",
+      });
+    } catch (error) {
+      console.error('Failed to update booking status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update booking status",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleAddBooking = () => {
-    const selectedParent = mockParents.find(p => p.id === newBooking.parentId);
-    const selectedTutor = mockTutors.find(t => t.id === newBooking.tutorId);
-    const selectedSubject = mockSubjects.find(s => s.id === newBooking.subjectId);
-
-    const booking: Booking = {
-      id: bookings.length + 1,
-      ...newBooking,
-      parent: selectedParent,
-      tutor: selectedTutor,
-      subject: selectedSubject,
-      amount: selectedTutor?.hourlyRate || 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    setBookings([...bookings, booking]);
-    setNewBooking({
-      parentId: 0,
-      tutorId: 0,
-      subjectId: 0,
-      date: '',
-      timeSlot: '',
-      status: 'pending'
-    });
-    setIsAddDialogOpen(false);
-  };
-
-  const handleDeleteBooking = (id: number) => {
-    setBookings(bookings.filter(booking => booking.id !== id));
-  };
+  if (loading) {
+    return (
+      <div className="h-full w-full bg-gradient-to-br from-slate-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
+        <div className="flex items-center space-x-3">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+          <span className="text-lg font-medium text-slate-700 dark:text-slate-300">Loading bookings...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-gradient-to-br from-slate-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -134,112 +132,6 @@ export function Bookings() {
               </div>
             </div>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 rounded-xl">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Booking
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] rounded-xl border-0 shadow-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-slate-800 dark:text-slate-200">Create New Booking</DialogTitle>
-                <DialogDescription className="text-slate-600 dark:text-slate-400">
-                  Schedule a new tutoring session between a parent and tutor.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="parentId" className="font-medium">Parent</Label>
-                    <Select value={newBooking.parentId.toString()} onValueChange={(value) => setNewBooking({...newBooking, parentId: parseInt(value)})}>
-                      <SelectTrigger className="rounded-lg">
-                        <SelectValue placeholder="Select parent" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        {mockParents.map((parent) => (
-                          <SelectItem key={parent.id} value={parent.id.toString()}>
-                            {parent.fullName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tutorId" className="font-medium">Tutor</Label>
-                    <Select value={newBooking.tutorId.toString()} onValueChange={(value) => setNewBooking({...newBooking, tutorId: parseInt(value)})}>
-                      <SelectTrigger className="rounded-lg">
-                        <SelectValue placeholder="Select tutor" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        {mockTutors.filter(t => t.status === 'active').map((tutor) => (
-                          <SelectItem key={tutor.id} value={tutor.id.toString()}>
-                            {tutor.fullName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="subjectId" className="font-medium">Subject</Label>
-                  <Select value={newBooking.subjectId.toString()} onValueChange={(value) => setNewBooking({...newBooking, subjectId: parseInt(value)})}>
-                    <SelectTrigger className="rounded-lg">
-                      <SelectValue placeholder="Select subject" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      {mockSubjects.filter(s => s.isActive).map((subject) => (
-                        <SelectItem key={subject.id} value={subject.id.toString()}>
-                          {subject.subjectName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="date" className="font-medium">Date</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={newBooking.date}
-                      onChange={(e) => setNewBooking({...newBooking, date: e.target.value})}
-                      className="rounded-lg border-slate-200 dark:border-slate-700"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="timeSlot" className="font-medium">Time Slot</Label>
-                    <Input
-                      id="timeSlot"
-                      value={newBooking.timeSlot}
-                      onChange={(e) => setNewBooking({...newBooking, timeSlot: e.target.value})}
-                      className="rounded-lg border-slate-200 dark:border-slate-700"
-                      placeholder="e.g., 14:00-15:00"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status" className="font-medium">Status</Label>
-                  <Select value={newBooking.status} onValueChange={(value: 'pending' | 'accepted' | 'rejected' | 'completed') => setNewBooking({...newBooking, status: value})}>
-                    <SelectTrigger className="rounded-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="accepted">Accepted</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleAddBooking} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 rounded-lg">
-                  Create Booking
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
 
         {/* Search and Filter Section */}
@@ -259,11 +151,11 @@ export function Bookings() {
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="accepted">Accepted</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="ACCEPTED">Accepted</SelectItem>
+              <SelectItem value="COMPLETED">Completed</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" size="icon" className="rounded-xl border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
@@ -363,11 +255,11 @@ export function Bookings() {
                           </Badge>
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="accepted">Accepted</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                          <SelectItem value="PENDING">Pending</SelectItem>
+                          <SelectItem value="ACCEPTED">Accepted</SelectItem>
+                          <SelectItem value="COMPLETED">Completed</SelectItem>
+                          <SelectItem value="REJECTED">Rejected</SelectItem>
+                          <SelectItem value="CANCELLED">Cancelled</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -387,7 +279,6 @@ export function Bookings() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeleteBooking(booking.id)}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                         >
                           <Trash2 className="h-4 w-4" />

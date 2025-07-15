@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Search, Filter, Edit, Trash2, Star, GraduationCap, MapPin, Clock, Users, BookOpen } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Filter, Edit, Trash2, Star, GraduationCap, MapPin, Clock, Users, BookOpen, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -11,18 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -30,30 +19,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { mockTutors, mockSubjects, mockAddresses, mockStatuses } from '@/data/mockData';
-import { Tutor, TutorFormData } from '@/types';
+import { adminAPI } from '@/services/api';
+import { Tutor } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 export function Tutors() {
-  const [tutors, setTutors] = useState<Tutor[]>(mockTutors);
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newTutor, setNewTutor] = useState<TutorFormData>({
-    fullName: '',
-    sex: 'male',
-    phoneNumber: '',
-    email: '',
-    addressId: 1,
-    maxNumber: 10,
-    profileImage: '',
-    userId: 0,
-    highestDegree: '',
-    graduateYear: new Date().getFullYear(),
-    statusId: 1,
-    subjectIds: [],
-    availability: []
-  });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchTutors();
+  }, []);
+
+  const fetchTutors = async () => {
+    try {
+      setLoading(true);
+      const response = await adminAPI.getTutors();
+      setTutors(response.data);
+    } catch (error) {
+      console.error('Failed to fetch tutors:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load tutors data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredTutors = tutors.filter(tutor => {
     const matchesSearch = 
@@ -68,61 +64,16 @@ export function Tutors() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleAddTutor = () => {
-    const tutor: Tutor = {
-      id: tutors.length + 1,
-      ...newTutor,
-      subjects: mockSubjects.filter(s => newTutor.subjectIds.includes(s.id)),
-      address: mockAddresses.find(a => a.id === newTutor.addressId),
-      education: {
-        id: tutors.length + 1,
-        tutorId: tutors.length + 1,
-        highestDegree: newTutor.highestDegree,
-        graduateYear: newTutor.graduateYear,
-        statusId: newTutor.statusId,
-        status: mockStatuses.find(s => s.id === newTutor.statusId)
-      },
-      rating: 4.5,
-      hourlyRate: 45,
-      status: 'active',
-      createdAt: new Date().toISOString()
-    };
-    setTutors([...tutors, tutor]);
-    setNewTutor({
-      fullName: '',
-      sex: 'male',
-      phoneNumber: '',
-      email: '',
-      addressId: 1,
-      maxNumber: 10,
-      profileImage: '',
-      userId: 0,
-      highestDegree: '',
-      graduateYear: new Date().getFullYear(),
-      statusId: 1,
-      subjectIds: [],
-      availability: []
-    });
-    setIsAddDialogOpen(false);
-  };
-
-  const handleDeleteTutor = (id: number) => {
-    setTutors(tutors.filter(tutor => tutor.id !== id));
-  };
-
-  const handleSubjectChange = (subjectId: number, checked: boolean) => {
-    if (checked) {
-      setNewTutor(prev => ({
-        ...prev,
-        subjectIds: [...prev.subjectIds, subjectId]
-      }));
-    } else {
-      setNewTutor(prev => ({
-        ...prev,
-        subjectIds: prev.subjectIds.filter(id => id !== subjectId)
-      }));
-    }
-  };
+  if (loading) {
+    return (
+      <div className="h-full w-full bg-gradient-to-br from-slate-50 via-white to-emerald-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
+        <div className="flex items-center space-x-3">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+          <span className="text-lg font-medium text-slate-700 dark:text-slate-300">Loading tutors...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-gradient-to-br from-slate-50 via-white to-emerald-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -144,173 +95,6 @@ export function Tutors() {
               </div>
             </div>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 rounded-xl">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Tutor
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto rounded-xl border-0 shadow-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-slate-800 dark:text-slate-200">Add New Tutor</DialogTitle>
-                <DialogDescription className="text-slate-600 dark:text-slate-400">
-                  Enter comprehensive tutor information including personal details, education, and subjects.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-6 py-4">
-                {/* Personal Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Personal Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fullName" className="font-medium">Full Name</Label>
-                      <Input
-                        id="fullName"
-                        value={newTutor.fullName}
-                        onChange={(e) => setNewTutor({...newTutor, fullName: e.target.value})}
-                        className="rounded-lg border-slate-200 dark:border-slate-700"
-                        placeholder="Enter full name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="sex" className="font-medium">Gender</Label>
-                      <Select value={newTutor.sex} onValueChange={(value: 'male' | 'female' | 'other') => setNewTutor({...newTutor, sex: value})}>
-                        <SelectTrigger className="rounded-lg">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="font-medium">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={newTutor.email}
-                        onChange={(e) => setNewTutor({...newTutor, email: e.target.value})}
-                        className="rounded-lg border-slate-200 dark:border-slate-700"
-                        placeholder="Enter email address"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phoneNumber" className="font-medium">Phone Number</Label>
-                      <Input
-                        id="phoneNumber"
-                        value={newTutor.phoneNumber}
-                        onChange={(e) => setNewTutor({...newTutor, phoneNumber: e.target.value})}
-                        className="rounded-lg border-slate-200 dark:border-slate-700"
-                        placeholder="Enter phone number"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="addressId" className="font-medium">Address</Label>
-                      <Select value={newTutor.addressId.toString()} onValueChange={(value) => setNewTutor({...newTutor, addressId: parseInt(value)})}>
-                        <SelectTrigger className="rounded-lg">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          {mockAddresses.map((address) => (
-                            <SelectItem key={address.id} value={address.id.toString()}>
-                              {address.area}, {address.location}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="maxNumber" className="font-medium">Max Students</Label>
-                      <Input
-                        id="maxNumber"
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={newTutor.maxNumber}
-                        onChange={(e) => setNewTutor({...newTutor, maxNumber: parseInt(e.target.value)})}
-                        className="rounded-lg border-slate-200 dark:border-slate-700"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Education Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Education</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="highestDegree" className="font-medium">Highest Degree</Label>
-                      <Input
-                        id="highestDegree"
-                        value={newTutor.highestDegree}
-                        onChange={(e) => setNewTutor({...newTutor, highestDegree: e.target.value})}
-                        className="rounded-lg border-slate-200 dark:border-slate-700"
-                        placeholder="e.g., PhD in Mathematics"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="graduateYear" className="font-medium">Graduate Year</Label>
-                      <Input
-                        id="graduateYear"
-                        type="number"
-                        min="1950"
-                        max={new Date().getFullYear()}
-                        value={newTutor.graduateYear}
-                        onChange={(e) => setNewTutor({...newTutor, graduateYear: parseInt(e.target.value)})}
-                        className="rounded-lg border-slate-200 dark:border-slate-700"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="statusId" className="font-medium">Education Status</Label>
-                    <Select value={newTutor.statusId.toString()} onValueChange={(value) => setNewTutor({...newTutor, statusId: parseInt(value)})}>
-                      <SelectTrigger className="rounded-lg">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        {mockStatuses.map((status) => (
-                          <SelectItem key={status.id} value={status.id.toString()}>
-                            {status.statusName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Subject Selection */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Teaching Subjects</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {mockSubjects.filter(s => s.isActive).map((subject) => (
-                      <div key={subject.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`subject-${subject.id}`}
-                          checked={newTutor.subjectIds.includes(subject.id)}
-                          onCheckedChange={(checked) => handleSubjectChange(subject.id, checked as boolean)}
-                        />
-                        <Label htmlFor={`subject-${subject.id}`} className="text-sm font-medium">
-                          {subject.subjectName}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleAddTutor} className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 rounded-lg">
-                  Add Tutor
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
 
         {/* Search and Filter Section */}
@@ -330,8 +114,8 @@ export function Tutors() {
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" size="icon" className="rounded-xl border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
@@ -440,7 +224,7 @@ export function Tutors() {
                     </TableCell>
                     <TableCell>
                       <Badge
-                        className={tutor.status === 'active' 
+                        className={tutor.status === 'ACTIVE' 
                           ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0 shadow-sm' 
                           : 'bg-gradient-to-r from-gray-500 to-slate-500 text-white border-0 shadow-sm'
                         }
@@ -456,7 +240,6 @@ export function Tutors() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeleteTutor(tutor.id)}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                         >
                           <Trash2 className="h-4 w-4" />
